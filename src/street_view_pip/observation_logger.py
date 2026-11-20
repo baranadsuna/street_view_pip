@@ -65,7 +65,7 @@ def _find_or_create_observation_layer(lang: str = "en") -> QgsVectorLayer:
         sl = symbol.symbolLayer(0)
         # Arrowhead points East (90 deg) by default in QGIS; rotate heading - 90
         prop = QgsProperty.fromExpression('"heading_deg" - 90')
-        sl.setDataDefinedProperty(QgsSymbolLayer.PropertyAngle, prop)
+        sl.setDataDefinedProperty(QgsSymbolLayer.Property.PropertyAngle, prop)
     lyr.renderer().setSymbol(symbol)
 
     proj.addMapLayer(lyr, True)

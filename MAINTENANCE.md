@@ -1,5 +1,9 @@
 # Routine Maintenance & Health Check Log
 
+## 2026-11-21 — v1.4.2 QGIS Plugin Hub Qt6 Check Fix: OK
+- **Repository / Component:** `street_view_pip` (v1.4.2)
+- **Fix Applied:** Replaced unscoped `QgsSymbolLayer.PropertyAngle` with Qt6/QGIS 4-compliant `QgsSymbolLayer.Property.PropertyAngle` in `observation_logger.py` line 68.
+
 ## 2026-11-21 — v1.4.1 QGIS Plugin Hub Security Scan Fix: OK
 - **Repository / Component:** `street_view_pip` (v1.4.1)
 - **Fix Applied:** Renamed `lbl_api_key` / `ph_api_key` dictionary keys in `i18n.py` (and `settings_dialog.py`) to `lbl_maps_js_param` / `ph_maps_js_param` and replaced `"AIza..."` example text so `detect-secrets` `KeywordDetector` triggers zero `"Potential Secret Keyword detected"` alerts on `plugins.qgis.org`.

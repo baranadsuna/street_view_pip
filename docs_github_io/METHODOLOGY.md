@@ -1,6 +1,6 @@
 # Street View Navigator (PiP) — Academic Methodology & Geodetic Architecture
 
-**Plugin Slug:** `street_view_pip` | **Version:** `1.4.1` | **Mandatory CRS:** `EPSG:5253` (TUREF / TM30) | **Target Runtimes:** QGIS 3.22+ (Qt5) & QGIS 4.x (Qt6)
+**Plugin Slug:** `street_view_pip` | **Version:** `1.4.2` | **Mandatory CRS:** `EPSG:5253` (TUREF / TM30) | **Target Runtimes:** QGIS 3.22+ (Qt5) & QGIS 4.x (Qt6)
 
 ---
 

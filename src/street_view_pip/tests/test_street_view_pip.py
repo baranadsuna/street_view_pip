@@ -18,6 +18,7 @@ from qgis.core import (
     QgsGeometry,
     QgsPointXY,
     QgsProject,
+    QgsSymbolLayer,
     QgsVectorLayer,
 )
 
@@ -129,6 +130,8 @@ def run_tests() -> None:
         feat = next(obs_lyr.getFeatures())
         assert abs(feat["heading_deg"] - 265.0) < 0.01
         assert feat["pano_id"] == "S5EiolKvhOt6RDFUsU9IqA"
+        sl0 = obs_lyr.renderer().symbol().symbolLayer(0)
+        assert sl0.dataDefinedProperties().hasProperty(QgsSymbolLayer.Property.PropertyAngle)
 
         proj.clear()
         print("PASS: test_street_view_pip (5/5 test groups passed)")
