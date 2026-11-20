@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Street View Navigator (PiP) (v1.4.0) — Academic Methodology &amp; GUI Guide</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" crossorigin="anonymous" />
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" crossorigin="anonymous"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js" crossorigin="anonymous"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}]});"></script>
+  <style>
+    :root {
+      --bg: #0b1120;
+      --card: #1e293b;
+      --border: #334155;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --accent: #38bdf8;
+      --gold: #facc15;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.65;
+    }
+    header {
+      background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 60%, #0284c7 100%);
+      border-bottom: 1px solid var(--border);
+      padding: 2.75rem 1.5rem;
+    }
+    .container { max-width: 1100px; margin: 0 auto; }
+    .badge-row { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1rem; }
+    .badge {
+      font-size: 0.75rem; font-weight: 700; text-transform: uppercase;
+      padding: 0.3rem 0.7rem; border-radius: 999px;
+      background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(148, 163, 184, 0.35);
+    }
+    h1 { margin: 0 0 0.5rem; font-size: 2.1rem; }
+    h2 {
+      margin-top: 2.25rem; padding-bottom: 0.45rem;
+      border-bottom: 1px solid var(--border); color: #f1f5f9;
+    }
+    main { padding: 2rem 1.5rem 4rem; }
+    .panel {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 10px; padding: 1.35rem; margin: 1rem 0;
+    }
+    .math-block {
+      background: rgba(15, 23, 42, 0.8); border-left: 4px solid var(--accent);
+      padding: 1rem; border-radius: 6px; overflow-x: auto; margin: 1rem 0;
+    }
+    .screenshot-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+      gap: 1.25rem; margin-top: 1rem;
+    }
+    figure {
+      margin: 0; background: var(--card); border: 1px solid var(--border);
+      border-radius: 10px; padding: 1rem;
+    }
+    figure img { width: 100%; height: auto; border-radius: 6px; border: 1px solid #475569; }
+    figcaption { margin-top: 0.65rem; font-size: 0.88rem; color: var(--muted); }
+    table { width: 100%; border-collapse: collapse; margin: 1rem 0; background: var(--card); }
+    th, td { padding: 0.75rem 0.9rem; border: 1px solid var(--border); text-align: left; }
+    th { background: #0f172a; color: #93c5fd; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    code {
+      font-family: 'Consolas', monospace; background: rgba(15, 23, 42, 0.85);
+      padding: 0.15rem 0.4rem; border-radius: 4px; color: #7dd3fc;
+    }
+    footer {
+      border-top: 1px solid var(--border); padding: 1.75rem 1.5rem;
+      text-align: center; color: var(--muted); font-size: 0.85rem;
+    }
+  </style>
+</head>
+<body>
+<header>
+  <div class="container">
+    <div class="badge-row">
+      <span class="badge">Version: 1.4.0</span>
+      <span class="badge">Standard CRS: EPSG:5253 (TUREF / TM30)</span>
+      <span class="badge">QGIS 3.x &amp; 4.x (Qt5 / Qt6)</span>
+      <span class="badge">Crossref Verified DOIs</span>
+    </div>
+    <h1>Street View Navigator (PiP) — Pegman Drag-and-Drop &amp; Corner PiP Viewer</h1>
+    <p>Interactive Pegman street-level inspection inside QGIS with blue coverage overlays, a resizable bottom-right Picture-in-Picture (PiP) Chromium viewport, real-time FOV cone synchronization, and EPSG:5253 field observation logging.</p>
+  </div>
+</header>
+<main class="container">
+  <h2>1. Geodetic Formulation &amp; Spatial Core</h2>
+  <div class="panel">
+    <p>Implemented in <code>geo_utils.py :: build_fov_cone_polygon</code> and <code>snap_to_nearest_road_azimuth</code>, all camera poses are projected bidirectionally between spherical WGS84 (<code>EPSG:4326</code>) and the metric Turkish National Reference Frame <code>EPSG:5253</code> (TUREF / TM30). Geodesic destination offsets eliminate Transverse Mercator meridian convergence distortion along the viewing cone:</p>
+    <div class="math-block">
+      $$\phi_2 = \arcsin\!\Big(\sin\phi_1\cos\delta + \cos\phi_1\sin\delta\cos\theta\Big), \quad \lambda_2 = \lambda_1 + \operatorname{atan2}\!\Big(\sin\theta\sin\delta\cos\phi_1,\; \cos\delta - \sin\phi_1\sin\phi_2\Big)$$
+    </div>
+    <p>When dropping Pegman onto a road without dragging an explicit aim vector, <code>snap_to_nearest_road_azimuth</code> transforms candidate <code>LineString</code> features to <code>EPSG:5253</code>, finds the closest street segment within $d \le 35\,\text{m}$, and aligns the camera azimuth:</p>
+    <div class="math-block">
+      $$\alpha = \operatorname{atan2}\!\Big(\sin(\Delta\lambda)\cos\phi_2,\; \cos\phi_1\sin\phi_2 - \sin\phi_1\cos\phi_2\cos(\Delta\lambda)\Big) \pmod{360^\circ}$$
+    </div>
+  </div>
+
+  <h2>2. Live QGIS GUI &amp; Bottom-Right PiP Workflow</h2>
+  <div class="screenshot-grid">
+    <figure>
+      <img src="assets/gui_step1_pip_overlay.png" alt="Street View Navigator bottom-right PiP overlay inside QGIS Map Canvas" />
+      <figcaption><strong>Figure 1.</strong> Real PyQGIS <code>QgsMapCanvas</code> in <code>EPSG:5253</code> showing the yellow Pegman pin + FOV cone over Akyol Cd. (Tire, İzmir) synchronized with the resizable bottom-right Picture-in-Picture (PiP) Edge WebView2 Street View window.</figcaption>
+    </figure>
+    <figure>
+      <img src="assets/gui_step2_settings_dialog.png" alt="Street View Navigator Settings Dialog" />
+      <figcaption><strong>Figure 2.</strong> <code>StreetViewSettingsDialog</code> supporting zero-key Google Street View Direct, optional Google Maps JS API keys, open-source Panoramax imagery, road-tangent snapping, Clean Panorama Mode, and EN/TR switching.</figcaption>
+    </figure>
+  </div>
+
+  <h2>3. Verified Academic Literature</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Citation</th>
+        <th>Title &amp; Journal</th>
+        <th>Verified DOI</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Karney (2012/2013)</strong></td>
+        <td><em>Algorithms for geodesics</em> — Journal of Geodesy, 87(1), 43–55</td>
+        <td><a href="https://doi.org/10.1007/s00190-012-0578-z" target="_blank" rel="noopener">10.1007/s00190-012-0578-z</a></td>
+      </tr>
+      <tr>
+        <td><strong>Anguelov et al. (2010)</strong></td>
+        <td><em>Google Street View: Capturing the World at Street Level</em> — Computer, 43(6), 32–38</td>
+        <td><a href="https://doi.org/10.1109/MC.2010.170" target="_blank" rel="noopener">10.1109/MC.2010.170</a></td>
+      </tr>
+      <tr>
+        <td><strong>Biljecki &amp; Ito (2021)</strong></td>
+        <td><em>Street view imagery in urban analytics and GIS: A review</em> — Landscape and Urban Planning, 215, 104217</td>
+        <td><a href="https://doi.org/10.1016/j.landurbplan.2021.104217" target="_blank" rel="noopener">10.1016/j.landurbplan.2021.104217</a></td>
+      </tr>
+    </tbody>
+  </table>
+</main>
+<footer>
+  Developed by <a href="https://github.com/baranadsuna">Baran Adsuna</a> — Dokuz Eylül University, Department of Urban and Regional Planning. Licensed under GPL-3.0-or-later.
+</footer>
+</body>
+</html>
