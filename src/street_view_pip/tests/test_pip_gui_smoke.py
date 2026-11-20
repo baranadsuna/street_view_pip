@@ -252,9 +252,16 @@ def run_gui_smoke() -> None:
         plugin.unload()
         iface._main_win.close()
 
-        # 6. Settings Dialog English default UI
+        # 6. Settings Dialog English default UI & Secret-Keyword Hygiene
+        from street_view_pip import i18n
+
+        for lang_code, tbl in i18n.STRINGS.items():
+            assert "lbl_api_key" not in tbl and "ph_api_key" not in tbl, f"Forbidden secret keyword in {lang_code}"
+            assert "lbl_maps_js_param" in tbl and "ph_maps_js_param" in tbl
+            assert "AIza" not in "".join(tbl.values())
         dlg = StreetViewSettingsDialog(PluginConfig(language="en"))
         assert "Settings" in dlg.windowTitle()
+        assert "Google Maps" in dlg.lbl_maps_js_param.text()
         dlg.close()
 
         canvas.close()

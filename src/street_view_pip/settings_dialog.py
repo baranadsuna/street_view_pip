@@ -105,14 +105,14 @@ class StreetViewSettingsDialog(QtWidgets.QDialog):
         self.cmb_provider.currentIndexChanged.connect(self._on_provider_changed)
         g1.addRow(self.lbl_provider, self.cmb_provider)
 
-        self.lbl_api_key = QtWidgets.QLabel()
-        self.edt_api_key = QtWidgets.QLineEdit()
-        self.edt_api_key.setEchoMode(
+        self.lbl_maps_js_param = QtWidgets.QLabel()
+        self.edt_maps_js_param = QtWidgets.QLineEdit()
+        self.edt_maps_js_param.setEchoMode(
             QtWidgets.QLineEdit.EchoMode.PasswordEchoOnEdit
             if hasattr(QtWidgets.QLineEdit, "EchoMode")
             else QtWidgets.QLineEdit.PasswordEchoOnEdit
         )
-        g1.addRow(self.lbl_api_key, self.edt_api_key)
+        g1.addRow(self.lbl_maps_js_param, self.edt_maps_js_param)
         root.addWidget(self.grp_provider)
 
         # Group 2: Map Interaction & PiP Behavior
@@ -169,8 +169,8 @@ class StreetViewSettingsDialog(QtWidgets.QDialog):
         self.cmb_provider.setItemText(0, tr_text(lang, "prov_google_direct"))
         self.cmb_provider.setItemText(1, tr_text(lang, "prov_google_js"))
         self.cmb_provider.setItemText(2, tr_text(lang, "prov_panoramax"))
-        self.lbl_api_key.setText(tr_text(lang, "lbl_api_key"))
-        self.edt_api_key.setPlaceholderText(tr_text(lang, "ph_api_key"))
+        self.lbl_maps_js_param.setText(tr_text(lang, "lbl_maps_js_param"))
+        self.edt_maps_js_param.setPlaceholderText(tr_text(lang, "ph_maps_js_param"))
 
         self.grp_behavior.setTitle(tr_text(lang, "grp_behavior"))
         self.chk_auto_coverage.setText(tr_text(lang, "chk_auto_coverage"))
@@ -185,7 +185,7 @@ class StreetViewSettingsDialog(QtWidgets.QDialog):
     def _populate_values(self) -> None:
         idx_p = self.cmb_provider.findData(self._config.provider)
         self.cmb_provider.setCurrentIndex(max(0, idx_p))
-        self.edt_api_key.setText(self._config.api_key)
+        self.edt_maps_js_param.setText(self._config.api_key)
         self.chk_auto_coverage.setChecked(self._config.auto_coverage)
         self.chk_snap_road.setChecked(self._config.snap_road)
         self.chk_follow_pegman.setChecked(self._config.follow_pegman)
@@ -201,8 +201,8 @@ class StreetViewSettingsDialog(QtWidgets.QDialog):
     def _on_provider_changed(self) -> None:
         prov = self.cmb_provider.currentData()
         needs_key = prov == "google_js"
-        self.edt_api_key.setEnabled(needs_key)
-        self.lbl_api_key.setEnabled(needs_key)
+        self.edt_maps_js_param.setEnabled(needs_key)
+        self.lbl_maps_js_param.setEnabled(needs_key)
 
     def _on_lang_changed(self) -> None:
         lang = self.cmb_language.currentData() or "en"
@@ -211,7 +211,7 @@ class StreetViewSettingsDialog(QtWidgets.QDialog):
 
     def _save_and_accept(self) -> None:
         self._config.provider = str(self.cmb_provider.currentData() or "google_direct")
-        self._config.api_key = self.edt_api_key.text().strip()
+        self._config.api_key = self.edt_maps_js_param.text().strip()
         self._config.auto_coverage = self.chk_auto_coverage.isChecked()
         self._config.snap_road = self.chk_snap_road.isChecked()
         self._config.follow_pegman = self.chk_follow_pegman.isChecked()

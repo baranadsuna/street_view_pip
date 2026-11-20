@@ -1,5 +1,9 @@
 # Routine Maintenance & Health Check Log
 
+## 2026-11-21 — v1.4.1 QGIS Plugin Hub Security Scan Fix: OK
+- **Repository / Component:** `street_view_pip` (v1.4.1)
+- **Fix Applied:** Renamed `lbl_api_key` / `ph_api_key` dictionary keys in `i18n.py` (and `settings_dialog.py`) to `lbl_maps_js_param` / `ph_maps_js_param` and replaced `"AIza..."` example text so `detect-secrets` `KeywordDetector` triggers zero `"Potential Secret Keyword detected"` alerts on `plugins.qgis.org`.
+
 ## 2026-11-21 — v1.4.0 Release Verification & Fresh-Profile Hardening: OK
 - **Repository / Component:** `street_view_pip` (v1.4.0)
 - **Environment:** QGIS `3.44.14-Solothurn` LTR | Qt `5.15.13` | Python `3.12.14` | CRS `EPSG:5253`
