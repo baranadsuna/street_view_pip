@@ -27,8 +27,10 @@ $$
 
 where $\theta \in [\alpha - \frac{\text{FOV}}{2},\; \alpha + \frac{\text{FOV}}{2}]$ sweeps across the camera's horizontal field of view and each $(\phi_2, \lambda_2)$ endpoint is transformed dynamically into the active canvas CRS.
 
-### 1.2. Forward Road-Tangent Alignment (`snap_to_nearest_road_azimuth`)
-When a user single-clicks a street without drag-aiming, `geo_utils.py :: snap_to_nearest_road_azimuth` transforms nearby `LineString` road features into metric `EPSG:5253`, identifies the closest segment within $d_{\max} = 35\,\text{m}$, and computes the true initial geodesic forward azimuth:
+### 1.2. Metric Road-Centerline & Tangent Snapping (`snap_to_nearest_road_detail`)
+When a user single-clicks or drops Pegman onto the canvas without dragging an explicit aim vector, `geo_utils.py :: snap_to_nearest_road_detail` transforms nearby `LineString` road features into metric `EPSG:5253`:
+- Within **`18.0 m`** of a road feature: snaps `(lat, lon)` directly onto the orthogonal closest point on the road segment *and* aligns the forward camera azimuth along the street centerline so Street View launches inside the panorama rather than falling back to 2D map view.
+- Within **`35.0 m`**: preserves the dropped coordinate while aligning heading with the nearest street segment azimuth (`snap_to_nearest_road_azimuth`):
 
 $$
 \alpha = \operatorname{atan2}\!\Big(\sin(\Delta\lambda)\cos\phi_2,\; \cos\phi_1\sin\phi_2 - \sin\phi_1\cos\phi_2\cos(\Delta\lambda)\Big) \pmod{360^\circ}
@@ -38,9 +40,9 @@ $$
 
 ## 2. Picture-in-Picture (PiP) Embedded Chromium Architecture
 
-On Microsoft Windows (both QGIS 3 Qt5 and QGIS 4 Qt6), `webview_host.py :: WebView2HostWidget` binds directly to the Microsoft Edge WebView2 Evergreen Runtime via COM (`WebView2Loader.dll` through `ctypes`), inheriting physical client pixel dimensions via Win32 `GetClientRect`. On Linux/macOS or QtWebEngine builds, it seamlessly delegates to `QWebEngineView`, and in headless `offscreen` test sessions it transitions safely to a non-blocking fallback card.
+On Microsoft Windows (both QGIS 3 Qt5 and QGIS 4 Qt6), `webview_host.py :: WebView2HostWidget` binds directly to the Microsoft Edge WebView2 Evergreen Runtime via COM (`WebView2Loader.dll` through `ctypes`), inheriting physical client pixel dimensions via Win32 `GetClientRect` and applying dark slate `#0f172a` initial background via `ICoreWebView2Controller2` while preserving WebView2's native User-Agent & Client-Hints (`Sec-CH-UA`) so fresh machines never hit black-screen WebGL initialization errors. On Linux/macOS or QtWebEngine builds, it seamlessly delegates to `QWebEngineView`, and in headless `offscreen` test sessions it transitions safely to a non-blocking fallback card.
 
-Two-way camera synchronization parses live URL camera states (`@lat,lon,...,fov y,heading h,tilt t` and `!1s<pano_id>`) and updates `PegmanCanvasMarker` + `CanvasPoseOverlay` in real time.
+Two-way camera synchronization parses live URL camera states (`@lat,lon,...,fov y,heading h,tilt t` and `!1s<pano_id>`) and updates `PegmanCanvasMarker` + `CanvasPoseOverlay` at 33 FPS (`<= 28 m` walking vs `> 28 m` sprinting with speed trails, `30 s` idle wave, direct collar/arm grab teleport, and Johnny Bravo "Do the Monkey!" celebration dance). Logged field inspections are stored in `StreetView_Observations_EPSG5253` with Qt6-scoped `QgsSymbolLayer.Property.PropertyAngle` directional arrow rotation.
 
 ---
 

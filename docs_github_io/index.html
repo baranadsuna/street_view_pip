@@ -88,16 +88,20 @@
     </div>
     <h1>Street View Navigator (PiP) — Pegman Drag-and-Drop &amp; Corner PiP Viewer</h1>
     <p>Interactive Pegman street-level inspection inside QGIS with blue coverage overlays, a resizable bottom-right Picture-in-Picture (PiP) Chromium viewport, real-time FOV cone synchronization, and EPSG:5253 field observation logging.</p>
+    <p style="margin-top:1rem;"><a href="https://github.com/baranadsuna/street_view_pip" style="color:#fef08a;font-weight:700;">GitHub Repository</a> &nbsp;•&nbsp; <a href="https://github.com/baranadsuna/street_view_pip/releases/latest" style="color:#fef08a;font-weight:700;">Download Latest Release (.zip)</a> &nbsp;•&nbsp; <a href="METHODOLOGY.md" style="color:#fef08a;font-weight:700;">Academic Methodology (MD)</a></p>
   </div>
 </header>
 <main class="container">
+  <figure style="margin-bottom:1.5rem;">
+    <img src="assets/hero_street_view_pip.svg" alt="Street View Navigator (PiP) Architecture &amp; Synchronized Canvas-PiP Overview" />
+  </figure>
   <h2>1. Geodetic Formulation &amp; Spatial Core</h2>
   <div class="panel">
-    <p>Implemented in <code>geo_utils.py :: build_fov_cone_polygon</code> and <code>snap_to_nearest_road_azimuth</code>, all camera poses are projected bidirectionally between spherical WGS84 (<code>EPSG:4326</code>) and the metric Turkish National Reference Frame <code>EPSG:5253</code> (TUREF / TM30). Geodesic destination offsets eliminate Transverse Mercator meridian convergence distortion along the viewing cone:</p>
+    <p>Implemented in <code>geo_utils.py :: build_fov_cone_polygon</code> and <code>snap_to_nearest_road_detail</code>, all camera poses are projected bidirectionally between spherical WGS84 (<code>EPSG:4326</code>) and the metric Turkish National Reference Frame <code>EPSG:5253</code> (TUREF / TM30). Geodesic destination offsets eliminate Transverse Mercator meridian convergence distortion along the viewing cone:</p>
     <div class="math-block">
       $$\phi_2 = \arcsin\!\Big(\sin\phi_1\cos\delta + \cos\phi_1\sin\delta\cos\theta\Big), \quad \lambda_2 = \lambda_1 + \operatorname{atan2}\!\Big(\sin\theta\sin\delta\cos\phi_1,\; \cos\delta - \sin\phi_1\sin\phi_2\Big)$$
     </div>
-    <p>When dropping Pegman onto a road without dragging an explicit aim vector, <code>snap_to_nearest_road_azimuth</code> transforms candidate <code>LineString</code> features to <code>EPSG:5253</code>, finds the closest street segment within $d \le 35\,\text{m}$, and aligns the camera azimuth:</p>
+    <p>When dropping Pegman onto a street without dragging an explicit aim vector, <code>snap_to_nearest_road_detail</code> transforms candidate <code>LineString</code> features to <code>EPSG:5253</code>, snaps the drop location directly onto the road centerline within $d \le 18\,\text{m}$ (or aligns orientation within $35\,\text{m}$), and computes the forward geodesic azimuth:</p>
     <div class="math-block">
       $$\alpha = \operatorname{atan2}\!\Big(\sin(\Delta\lambda)\cos\phi_2,\; \cos\phi_1\sin\phi_2 - \sin\phi_1\cos\phi_2\cos(\Delta\lambda)\Big) \pmod{360^\circ}$$
     </div>
