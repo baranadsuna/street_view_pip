@@ -434,6 +434,21 @@ def _call_vtable(ptr: int, index: int, restype, argtypes: list, *args):
     return proto(vtbl_ptr[0][index])(ptr, *args)
 
 
+def _get_webview2_user_data_dir() -> str:
+    """Return a persistent WebView2 profile directory to avoid cold-start delays."""
+    local_app = os.environ.get("LOCALAPPDATA", "").strip()
+    if local_app:
+        candidate = os.path.join(local_app, "QGIS_StreetViewPiP", "wv2_profile")
+        try:
+            os.makedirs(candidate, exist_ok=True)
+            return candidate
+        except OSError as exc:
+            log_debug(f"LOCALAPPDATA WebView2 profile fallback triggered: {exc}")
+    fallback = os.path.join(tempfile.gettempdir(), "qgis_street_view_pip_wv2")
+    os.makedirs(fallback, exist_ok=True)
+    return fallback
+
+
 class WebView2HostWidget(QtWidgets.QWidget):
     """Hosts Microsoft Edge WebView2 inside a Qt QWidget via native HWND."""
 
@@ -450,6 +465,7 @@ class WebView2HostWidget(QtWidgets.QWidget):
         self._wv_ptr: Optional[int] = None
         self._handlers: list = []
         self._initialized = False
+        self._reveal_ready = False
         self._closing = False
         self._pending_nav: Optional[tuple] = None  # ("url" | "html", payload)
         self._hwnd: int = 0
@@ -460,7 +476,7 @@ class WebView2HostWidget(QtWidgets.QWidget):
             else QtCore.Qt.WA_NativeWindow
         )
         self.setAttribute(wa_native, True)
-        QtCore.QTimer.singleShot(20, self._init_webview2)
+        QtCore.QTimer.singleShot(0, self._init_webview2)
 
     def _init_webview2(self) -> None:
         if self._closing or self._initialized:
@@ -469,8 +485,7 @@ class WebView2HostWidget(QtWidgets.QWidget):
             ctypes.oledll.ole32.CoInitializeEx(None, 2)  # COINIT_APARTMENTTHREADED
             self._loader = ctypes.WinDLL(self._dll_path)
             self._hwnd = int(self.winId())
-            user_data = os.path.join(tempfile.gettempdir(), "qgis_street_view_pip_wv2")
-            os.makedirs(user_data, exist_ok=True)
+            user_data = _get_webview2_user_data_dir()
 
             def on_env(err_code, env_ptr):
                 if self._closing or err_code != 0 or not env_ptr:
@@ -497,7 +512,13 @@ class WebView2HostWidget(QtWidgets.QWidget):
                 self._ctrl_ptr = ctrl_ptr
                 _call_vtable(ctrl_ptr, 1, ctypes.c_ulong, [])  # AddRef
                 self._apply_controller_background(ctrl_ptr)
-                _call_vtable(ctrl_ptr, 4, ctypes.c_long, [wintypes.BOOL], bool(self.isVisible()))
+                _call_vtable(
+                    ctrl_ptr,
+                    4,
+                    ctypes.c_long,
+                    [wintypes.BOOL],
+                    bool(self._reveal_ready and self.isVisible()),
+                )
 
                 wv_ptr = ctypes.c_void_p()
                 _call_vtable(ctrl_ptr, 25, ctypes.c_long, [ctypes.POINTER(ctypes.c_void_p)], ctypes.byref(wv_ptr))
@@ -684,10 +705,18 @@ class WebView2HostWidget(QtWidgets.QWidget):
             ctypes.byref(h_exec),
         )
 
+    def set_reveal_ready(self, ready: bool) -> None:
+        self._reveal_ready = bool(ready)
+        if self._reveal_ready and self.isVisible():
+            self.set_webview_visible(True)
+        elif not self._reveal_ready:
+            self.set_webview_visible(False)
+
     def set_webview_visible(self, visible: bool) -> None:
         if self._ctrl_ptr and not self._closing:
-            _call_vtable(self._ctrl_ptr, 4, ctypes.c_long, [wintypes.BOOL], bool(visible))
-            if visible:
+            effective = bool(visible) and self._reveal_ready
+            _call_vtable(self._ctrl_ptr, 4, ctypes.c_long, [wintypes.BOOL], effective)
+            if effective:
                 self._sync_bounds()
 
     def resizeEvent(self, event) -> None:
@@ -751,10 +780,13 @@ class StreetViewBrowserWidget(QtWidgets.QWidget):
         self._backend_name = "fallback"
         self._wv2: Optional[WebView2HostWidget] = None
         self._qt_web = None
+        self._first_reveal_done = False
 
-        self._layout = QtWidgets.QVBoxLayout(self)
+        self._layout = QtWidgets.QStackedLayout(self)
         self._layout.setContentsMargins(0, 0, 0, 0)
         self._layout.setSpacing(0)
+
+        self._build_loading_card()
 
         self._poll_timer = QtCore.QTimer(self)
         self._poll_timer.setInterval(400)
@@ -768,15 +800,65 @@ class StreetViewBrowserWidget(QtWidgets.QWidget):
         self._load_timeout = QtCore.QTimer(self)
         self._load_timeout.setSingleShot(True)
         self._load_timeout.setInterval(4500)
-        self._load_timeout.timeout.connect(lambda: self.loadingChanged.emit(False))
+        self._load_timeout.timeout.connect(self._on_load_timeout_reached)
 
         self._init_backend()
+
+    def _build_loading_card(self) -> None:
+        card = QtWidgets.QFrame(self)
+        card.setStyleSheet(
+            "QFrame { background: #0f172a; color: #e2e8f0; border: none; }"
+            "QLabel { background: transparent; }"
+        )
+        vbox = QtWidgets.QVBoxLayout(card)
+        vbox.setContentsMargins(16, 16, 16, 16)
+        vbox.setSpacing(8)
+        vbox.addStretch(1)
+
+        self._lbl_load_badge = QtWidgets.QLabel("360°", card)
+        self._lbl_load_badge.setAlignment(ALIGN_CENTER)
+        self._lbl_load_badge.setStyleSheet(
+            "font-size: 16px; font-weight: 800; color: #38bdf8; letter-spacing: 1px;"
+        )
+        vbox.addWidget(self._lbl_load_badge)
+
+        self._lbl_load_title = QtWidgets.QLabel(tr_text(self._lang, "status_loading"), card)
+        self._lbl_load_title.setAlignment(ALIGN_CENTER)
+        self._lbl_load_title.setWordWrap(True)
+        self._lbl_load_title.setStyleSheet("font-size: 12px; font-weight: 600; color: #f8fafc;")
+        vbox.addWidget(self._lbl_load_title)
+
+        self._lbl_load_coords = QtWidgets.QLabel("", card)
+        self._lbl_load_coords.setAlignment(ALIGN_CENTER)
+        self._lbl_load_coords.setStyleSheet("font-family: Consolas, monospace; font-size: 11px; color: #facc15;")
+        vbox.addWidget(self._lbl_load_coords)
+        vbox.addStretch(1)
+
+        self._loading_card = card
+        self._layout.addWidget(card)
+        self._layout.setCurrentWidget(card)
+
+    def _reveal_backend(self) -> None:
+        if self._first_reveal_done:
+            return
+        self._first_reveal_done = True
+        if self._wv2 is not None:
+            self._layout.setCurrentWidget(self._wv2)
+            self._wv2.set_reveal_ready(True)
+        elif self._qt_web is not None:
+            self._layout.setCurrentWidget(self._qt_web)
+
+    def _on_load_timeout_reached(self) -> None:
+        self._reveal_backend()
+        self.loadingChanged.emit(False)
 
     def backend_name(self) -> str:
         return self._backend_name
 
     def set_language(self, lang: str) -> None:
         self._lang = lang
+        if hasattr(self, "_lbl_load_title"):
+            self._lbl_load_title.setText(tr_text(self._lang, "status_loading"))
         if hasattr(self, "_lbl_fb_title"):
             self._lbl_fb_title.setText(tr_text(self._lang, "fallback_title"))
             self._lbl_fb_desc.setText(tr_text(self._lang, "fallback_desc"))
@@ -863,6 +945,7 @@ class StreetViewBrowserWidget(QtWidgets.QWidget):
 
         self._fallback_card = card
         self._layout.addWidget(card)
+        self._layout.setCurrentWidget(card)
 
     def _switch_to_fallback(self, _reason: str) -> None:
         self._load_timeout.stop()
@@ -909,6 +992,8 @@ class StreetViewBrowserWidget(QtWidgets.QWidget):
             url=url,
         )
 
+        if hasattr(self, "_lbl_load_coords"):
+            self._lbl_load_coords.setText(f"{lat:.6f}, {lon:.6f} | Hdg {heading:.0f}°")
         if hasattr(self, "_lbl_fb_coords"):
             self._lbl_fb_coords.setText(f"{lat:.6f}, {lon:.6f} | Hdg {heading:.0f} deg")
 
@@ -941,6 +1026,8 @@ class StreetViewBrowserWidget(QtWidgets.QWidget):
 
     def _on_nav_finished(self, url: str) -> None:
         self._load_timeout.stop()
+        if (url and url.startswith("http")) or self._provider == "google_js":
+            self._reveal_backend()
         self.loadingChanged.emit(False)
         self._handle_url_update(url)
         if self._provider == "google_direct":
@@ -1065,11 +1152,15 @@ class StreetViewBrowserWidget(QtWidgets.QWidget):
         self._poll_timer.stop()
         self._clean_debounce.stop()
         self._load_timeout.stop()
+        self._first_reveal_done = False
         self.loadingChanged.emit(False)
         self._current_url = ""
         self._last_sv_url = ""
         self._last_pose = None
+        if hasattr(self, "_loading_card"):
+            self._layout.setCurrentWidget(self._loading_card)
         if self._wv2 is not None:
+            self._wv2.set_reveal_ready(False)
             self._wv2.set_html("<html><body style='background:#0f172a;margin:0;'></body></html>")
         elif self._qt_web is not None:
             self._qt_web.setHtml("<html><body style='background:#0f172a;margin:0;'></body></html>")

@@ -1,5 +1,11 @@
 # Routine Maintenance & Health Check Log
 
+## 2026-11-25 — Routine Check: OK
+- **Repository / Component:** street_view_pip (v1.4.3)
+- **Environment:** QGIS `3.44.14-Solothurn` LTR | Qt `5.15.13` | Python `3.12.14` | CRS `EPSG:5253`
+- **Verification Results:** qt5_qt6_qgis34_scanner.py PASS; test_street_view_pip.py (5/5) & test_pip_gui_smoke.py (6/6) PASSED. Fixed first-launch black screen & slow cold-start on new machines.
+- **Status:** No issues detected during routine maintenance check. Active development and upcoming updates will continue.
+
 ## 2026-11-21 — v1.4.2 QGIS Plugin Hub Qt6 Check Fix: OK
 - **Repository / Component:** `street_view_pip` (v1.4.2)
 - **Fix Applied:** Replaced unscoped `QgsSymbolLayer.PropertyAngle` with Qt6/QGIS 4-compliant `QgsSymbolLayer.Property.PropertyAngle` in `observation_logger.py` line 68.
